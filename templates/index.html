@@ -73,14 +73,14 @@
                     const resultDiv = document.getElementById('predictionResult');
                     const confidenceDiv = document.getElementById('confidenceScore');
                     
-                    resultDiv.className = `alert ${data.result === 'Benign' ? 'alert-success' : 'alert-danger'}`;
-                    resultDiv.textContent = `Prediction: ${data.result}`;
+                    resultDiv.className = 'alert alert-info';
+                    resultDiv.textContent = `Prediction: ${data.prediction}`;
                     
                     confidenceDiv.className = 'alert alert-info';
                     confidenceDiv.textContent = `Confidence: ${(data.confidence * 100).toFixed(2)}%`;
                     
-                    document.getElementById('originalImage').src = data.image_path;
-                    document.getElementById('processedImage').src = data.processed_image_path;
+                    document.getElementById('originalImage').src = URL.createObjectURL(fileInput.files[0]);
+                    document.getElementById('processedImage').src = URL.createObjectURL(fileInput.files[0]);
                 } else {
                     throw new Error(data.error || 'An error occurred');
                 }

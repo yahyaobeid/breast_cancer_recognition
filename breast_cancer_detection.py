@@ -52,11 +52,11 @@ def preprocess_image(image_path):
 
 def calculate_features(contour, image):
     """Calculate tumor features from the contour."""
-    # Basic features
+    # Basic measurements
     area = cv2.contourArea(contour)
     perimeter = cv2.arcLength(contour, True)
     
-    # Calculate radius (mean distance from center to points)
+    # Calculate center of mass
     M = cv2.moments(contour)
     if M["m00"] == 0:
         raise ValueError("Invalid contour")
@@ -64,32 +64,65 @@ def calculate_features(contour, image):
     cx = int(M["m10"] / M["m00"])
     cy = int(M["m01"] / M["m00"])
     
-    # Calculate distances from center to contour points
+    # Calculate distances from center to points
     distances = []
     for point in contour.reshape(-1, 2):
         dist = np.sqrt((point[0] - cx)**2 + (point[1] - cy)**2)
         distances.append(dist)
     
-    radius = np.mean(distances)
+    distances = np.array(distances)
     
-    # Calculate texture (standard deviation of pixel values in the region)
+    # Create mask for the tumor region
     mask = np.zeros(image.shape, np.uint8)
     cv2.drawContours(mask, [contour], -1, 255, -1)
-    texture = np.std(image[mask == 255])
+    tumor_region = image[mask == 255]
     
-    # Calculate other features
-    smoothness = np.std(distances) / radius
-    compactness = (perimeter**2) / (4 * np.pi * area)
+    # Calculate features that match the Wisconsin dataset
+    # Mean features
+    radius_mean = np.mean(distances)
+    texture_mean = np.std(tumor_region)  # Standard deviation of gray-scale values
+    perimeter_mean = perimeter
+    area_mean = area
+    smoothness_mean = np.std(distances) / radius_mean
+    compactness_mean = (perimeter ** 2) / (4 * np.pi * area)
+    concavity_mean = np.mean(np.abs(distances - radius_mean))
+    concave_points_mean = len(distances[distances < radius_mean]) / len(distances)
+    symmetry_mean = np.abs(np.mean(distances[:len(distances)//2]) - np.mean(distances[len(distances)//2:]))
+    fractal_dimension_mean = np.log(perimeter) / np.log(area)
     
-    # Create feature vector
+    # Standard error features
+    radius_se = np.std(distances)
+    texture_se = np.std(tumor_region) / np.sqrt(len(tumor_region))
+    perimeter_se = radius_se * 2 * np.pi
+    area_se = 2 * radius_mean * radius_se * np.pi
+    smoothness_se = np.std(smoothness_mean)
+    compactness_se = np.std(compactness_mean)
+    concavity_se = np.std(concavity_mean)
+    concave_points_se = np.std(concave_points_mean)
+    symmetry_se = np.std(symmetry_mean)
+    fractal_dimension_se = np.std(fractal_dimension_mean)
+    
+    # "Worst" features (mean of the three largest values)
+    radius_worst = np.mean(np.sort(distances)[-3:])
+    texture_worst = np.max(texture_mean)
+    perimeter_worst = 2 * np.pi * radius_worst
+    area_worst = np.pi * radius_worst ** 2
+    smoothness_worst = np.max(smoothness_mean)
+    compactness_worst = np.max(compactness_mean)
+    concavity_worst = np.max(concavity_mean)
+    concave_points_worst = np.max(concave_points_mean)
+    symmetry_worst = np.max(symmetry_mean)
+    fractal_dimension_worst = np.max(fractal_dimension_mean)
+    
+    # Create feature vector matching Wisconsin dataset order
     features = [
-        radius,
-        texture,
-        perimeter,
-        area,
-        smoothness,
-        compactness,
-        # Add more features as needed
+        radius_mean, texture_mean, perimeter_mean, area_mean, smoothness_mean,
+        compactness_mean, concavity_mean, concave_points_mean, symmetry_mean,
+        fractal_dimension_mean, radius_se, texture_se, perimeter_se, area_se,
+        smoothness_se, compactness_se, concavity_se, concave_points_se,
+        symmetry_se, fractal_dimension_se, radius_worst, texture_worst,
+        perimeter_worst, area_worst, smoothness_worst, compactness_worst,
+        concavity_worst, concave_points_worst, symmetry_worst, fractal_dimension_worst
     ]
     
     return features
